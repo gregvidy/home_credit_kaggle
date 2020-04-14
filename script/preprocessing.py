@@ -12,8 +12,8 @@ def one_hot_encoder(df, nan_as_category=True):
 
 
 def application_train_test(num_rows=None, nan_as_categegory=True):
-    app_train = pd.read_csv("DS1/app_train.csv", nrows=num_rows, sep=",", index_col=0)
-    app_test = pd.read_csv("DS1/app_test.csv", nrows=num_rows, sep=",", index_col=0)
+    app_train = pd.read_csv("../input/app_train.csv", nrows=num_rows, sep=",", index_col=0)
+    app_test = pd.read_csv("../input/app_test.csv", nrows=num_rows, sep=",", index_col=0)
 
     # store y_actual then replacing app_test target with nan
     y_actual = app_test["TARGET"].copy()
