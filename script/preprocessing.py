@@ -1,15 +1,7 @@
 import pandas as pd
 import numpy as np
 import pickle
-
-
-def one_hot_encoder(df, nan_as_category=True):
-    original_columns = list(df.columns)
-    categorical_columns = [col for col in df.columns if df[col].dtype == "object"]
-    df = pd.get_dummies(df, columns=categorical_columns, dummy_na=nan_as_category)
-    new_columns = [c for c in df.columns if c not in original_columns]
-    return df, new_columns
-
+from .categorical_features import CategoricalFeatures
 
 def application_train_test(num_rows=None, nan_as_categegory=True):
     app_train = pd.read_csv("../input/app_train.csv", nrows=num_rows, sep=",", index_col=0)
@@ -42,15 +34,20 @@ def application_train_test(num_rows=None, nan_as_categegory=True):
     app_train_test['NEW_INC_PER_PERSON'] = app_train_test['INCOME'] / (1 + app_train_test['NUM_CHILDREN'])
 
     # encoding categorical columns
-    app_train_test, cat_cols = one_hot_encoder(app_train_test, nan_as_category=True)
+    cat_cols = [col for col in app_train_test.columns if df[col].dtype == "object"]
+    cat_feats = CategoricalFeatures(app_train_test,
+                                    categorical_features=cat_cols,
+                                    encoding_type="one_hot",
+                                    handle_na=True)
+    df_transformed = cat_feats.fit_transform()
 
-    app_train_test.set_index("LN_ID")
-    del app_train, app_test, cat_cols
-    return app_train_test, y_actual
+    df_transformed.set_index("LN_ID")
+    del app_train, app_test
+    return df_transformed, y_actual
 
 
 def previous_applications(num_rows=None, nan_as_category=True):
-    prev_app = pd.read_csv("DS1/prev_app.csv", nrows=num_rows, sep=",", index_col=0)
+    prev_app = pd.read_csv("../input/prev_app.csv", nrows=num_rows, sep=",", index_col=0)
     
     # replace anomalous value
     prev_app["FIRST_DRAW"].replace(365243, np.nan, inplace=True)
@@ -76,7 +73,12 @@ def previous_applications(num_rows=None, nan_as_category=True):
     
     # encoding categorical
     prev_app["NFLAG_INSURED_ON_APPROVAL"] = prev_app["NFLAG_INSURED_ON_APPROVAL"].astype("object")
-    prev_app, cat_cols = one_hot_encoder(prev_app, nan_as_category=True)
+    cat_cols = [col for col in prev_app.columns if df[col].dtype == "object"]
+    cat_feats = CategoricalFeatures(prev_app,
+                                    categorical_features=cat_cols,
+                                    encoding_type="one_hot",
+                                    handle_na=True)
+    prev_app = cat_feats.fit_transform()
     cat_aggregations = {}
     for cat in cat_cols:
         cat_aggregations[cat] = ["mean"]
@@ -125,7 +127,12 @@ def installment_payment(num_rows=None, nan_as_category=True):
                     "HAS_DUE": ["max", "mean", "sum"]}
     
     # encoding categorical variables
-    installment_pmt, cat_cols = one_hot_encoder(installment_pmt, nan_as_category=True)
+    cat_cols = [col for col in installment_pmt.columns if df[col].dtype == "object"]
+    cat_feats = CategoricalFeatures(installment_pmt,
+                                    categorical_features=cat_cols,
+                                    encoding_type="one_hot",
+                                    handle_na=True)
+    installment_pmt = cat_feats.fit_transform()
     for cat in cat_cols:
         aggregations[cat] = ["mean"]
     
@@ -138,7 +145,7 @@ def installment_payment(num_rows=None, nan_as_category=True):
     del installment_pmt
     return installment_agg
 
-def main(num_rows):
+if __name__ == "__main__":
     print('Reading data into memory ...')
     df, y_actual = application_train_test(num_rows)
     prev = previous_applications(num_rows)
@@ -155,6 +162,3 @@ def main(num_rows):
     print("Final df shape:", df.shape)
     print('Preprocessing is complete, saving data to disk ...')
     return pickle.dump([df, y_actual], open("preprocessed_data", "wb")), print("Data saved!")
-
-if __name__ == "__main__":
-    main(2872306)
