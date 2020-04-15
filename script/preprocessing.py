@@ -1,63 +1,49 @@
 import pandas as pd
 import numpy as np
 import pickle
-from .categorical_features import CategoricalFeatures
+from categorical_features import CategoricalFeatures
 
-def application_train_test(num_rows=None, nan_as_categegory=True):
-    app_train = pd.read_csv("../input/app_train.csv", nrows=num_rows, sep=",", index_col=0)
-    app_test = pd.read_csv("../input/app_test.csv", nrows=num_rows, sep=",", index_col=0)
-
-    # store y_actual then replacing app_test target with nan
-    y_actual = app_test["TARGET"].copy()
-    app_test["TARGET"].replace(0, np.nan, inplace=True)
-    app_test["TARGET"].replace(1, np.nan, inplace=True)
-
-    # join the data
-    app_train_test = pd.concat([app_train, app_test], axis=0)
-
+def application_train_test(df):
     # replace anomalous value
-    app_train_test["DAYS_WORK"].replace(365243, np.nan, inplace=True)
+    df["DAYS_WORK"].replace(365243, np.nan, inplace=True)
 
     # create new features
-    income_by_org = app_train_test[["INCOME", "ORGANIZATION_TYPE"]].groupby("ORGANIZATION_TYPE").median()["INCOME"]
-    app_train_test["NEW_ANNUITY_TO_CREDIT_RATIO"] = app_train_test["ANNUITY"] / app_train_test["APPROVED_CREDIT"]
-    app_train_test["NEW_CREDIT_TO_GOODS_RATIO"] = app_train_test["APPROVED_CREDIT"] / app_train_test["PRICE"]
-    app_train_test["NEW_INCOME_BY_ORG"] = app_train_test["ORGANIZATION_TYPE"].map(income_by_org)
-    app_train_test["NEW_EMPLOYED_TO_BIRTH_RATIO"] = app_train_test["DAYS_WORK"] / app_train_test["DAYS_AGE"]
-    app_train_test["NEW_ANNUITY_TO_INCOME_RATIO"] = app_train_test["ANNUITY"] / app_train_test["INCOME"]
-    app_train_test["NEW_CREDIT_TO_INCOME_RATIO"] = app_train_test["APPROVED_CREDIT"] / app_train_test["INCOME"]
-    app_train_test["NEW_GOODS_TO_INCOME_RATIO"] = app_train_test["PRICE"] / app_train_test["INCOME"]
-    app_train_test["NEW_SCORE_PROD"] = app_train_test["EXT_SCORE_1"] * app_train_test["EXT_SCORE_2"] * app_train_test["EXT_SCORE_3"]
-    app_train_test["NEW_EXT_SCORES_MEAN"] = app_train_test[["EXT_SCORE_1", "EXT_SCORE_2", "EXT_SCORE_3"]].mean(axis=1)
-    app_train_test["NEW_EXT_SCORES_STD"] = app_train_test[["EXT_SCORE_1", "EXT_SCORE_2", "EXT_SCORE_3"]].std(axis=1)
-    app_train_test["NEW_EXT_SCORES_STD"] = app_train_test["NEW_EXT_SCORES_STD"].fillna(app_train_test["NEW_EXT_SCORES_STD"].mean())
-    app_train_test['NEW_INC_PER_PERSON'] = app_train_test['INCOME'] / (1 + app_train_test['NUM_CHILDREN'])
+    income_by_org = df[["INCOME", "ORGANIZATION_TYPE"]].groupby("ORGANIZATION_TYPE").median()["INCOME"]
+    df["NEW_ANNUITY_TO_CREDIT_RATIO"] = df["ANNUITY"] / df["APPROVED_CREDIT"]
+    df["NEW_CREDIT_TO_GOODS_RATIO"] = df["APPROVED_CREDIT"] / df["PRICE"]
+    df["NEW_INCOME_BY_ORG"] = df["ORGANIZATION_TYPE"].map(income_by_org)
+    df["NEW_EMPLOYED_TO_BIRTH_RATIO"] = df["DAYS_WORK"] / df["DAYS_AGE"]
+    df["NEW_ANNUITY_TO_INCOME_RATIO"] = df["ANNUITY"] / df["INCOME"]
+    df["NEW_CREDIT_TO_INCOME_RATIO"] = df["APPROVED_CREDIT"] / df["INCOME"]
+    df["NEW_GOODS_TO_INCOME_RATIO"] = df["PRICE"] / df["INCOME"]
+    df["NEW_SCORE_PROD"] = df["EXT_SCORE_1"] * df["EXT_SCORE_2"] * df["EXT_SCORE_3"]
+    df["NEW_EXT_SCORES_MEAN"] = df[["EXT_SCORE_1", "EXT_SCORE_2", "EXT_SCORE_3"]].mean(axis=1)
+    df["NEW_EXT_SCORES_STD"] = df[["EXT_SCORE_1", "EXT_SCORE_2", "EXT_SCORE_3"]].std(axis=1)
+    df["NEW_EXT_SCORES_STD"] = df["NEW_EXT_SCORES_STD"].fillna(df["NEW_EXT_SCORES_STD"].mean())
+    df['NEW_INC_PER_PERSON'] = df['INCOME'] / (1 + df['NUM_CHILDREN'])
 
     # encoding categorical columns
-    cat_cols = [col for col in app_train_test.columns if df[col].dtype == "object"]
-    cat_feats = CategoricalFeatures(app_train_test,
+    cat_cols = [col for col in df.columns if df[col].dtype == "object"]
+    cat_feats = CategoricalFeatures(df,
                                     categorical_features=cat_cols,
                                     encoding_type="one_hot",
                                     handle_na=True)
     df_transformed = cat_feats.fit_transform()
 
     df_transformed.set_index("LN_ID")
-    del app_train, app_test
-    return df_transformed, y_actual
+    return df_transformed
 
 
-def previous_applications(num_rows=None, nan_as_category=True):
-    prev_app = pd.read_csv("../input/prev_app.csv", nrows=num_rows, sep=",", index_col=0)
-    
+def previous_applications(df):
     # replace anomalous value
-    prev_app["FIRST_DRAW"].replace(365243, np.nan, inplace=True)
-    prev_app["FIRST_DUE"].replace(365243, np.nan, inplace=True)
-    prev_app["TERMINATION"].replace(365243, np.nan, inplace=True)
+    df["FIRST_DRAW"].replace(365243, np.nan, inplace=True)
+    df["FIRST_DUE"].replace(365243, np.nan, inplace=True)
+    df["TERMINATION"].replace(365243, np.nan, inplace=True)
     
     # new feature
-    prev_app["CREDIT_PERC"] = prev_app["APPLICATION"] / prev_app["APPROVED_CREDIT"]
+    df["CREDIT_PERC"] = df["APPLICATION"] / df["APPROVED_CREDIT"]
     
-    # aggregation
+    # aggregation 
     num_aggregations = {"ANNUITY": ["max", "mean"],
                         "APPLICATION": ["min", "mean"],
                         "CREDIT_PERC": ["min", "max", "mean"],
@@ -72,49 +58,48 @@ def previous_applications(num_rows=None, nan_as_category=True):
                         "TERMINATION": ["min", "max", "mean"]}
     
     # encoding categorical
-    prev_app["NFLAG_INSURED_ON_APPROVAL"] = prev_app["NFLAG_INSURED_ON_APPROVAL"].astype("object")
-    cat_cols = [col for col in prev_app.columns if df[col].dtype == "object"]
-    cat_feats = CategoricalFeatures(prev_app,
+    df["NFLAG_INSURED_ON_APPROVAL"] = df["NFLAG_INSURED_ON_APPROVAL"].astype("object")
+    cat_cols = [col for col in df.columns if df[col].dtype == "object"]
+    cat_feats = CategoricalFeatures(df,
                                     categorical_features=cat_cols,
                                     encoding_type="one_hot",
                                     handle_na=True)
-    prev_app = cat_feats.fit_transform()
+    df_transformed = cat_feats.fit_transform()
+    df_transformed = df_transformed.loc[:,~df_transformed.columns.duplicated()] # delete duplicate columns
+    new_cols = [c for c in df_transformed.columns if c not in df.columns]
     cat_aggregations = {}
-    for cat in cat_cols:
+    for cat in new_cols:
         cat_aggregations[cat] = ["mean"]
     
     # group by aggregation
-    prev_agg = prev_app.groupby("LN_ID").agg({**num_aggregations, **cat_aggregations})
-    prev_agg.columns = pd.Index(["PREV_" + c[0] + "_" + c[1].upper() for c in prev_agg.columns.tolist()])
+    df_agg = df_transformed.groupby("LN_ID").agg({**num_aggregations, **cat_aggregations})
+    df_agg.columns = pd.Index(["PREV_" + c[0] + "_" + c[1].upper() for c in df_agg.columns.tolist()])
     
     # group by previous application: approved - only numerical features
-    approved = prev_app[prev_app["CONTRACT_STATUS_Approved"] == 1]
+    approved = df_transformed[df_transformed["CONTRACT_STATUS_Approved"] == 1]
     approved_agg = approved.groupby("LN_ID").agg(num_aggregations)
     approved_agg.columns = pd.Index(["APPROVED_" + c[0] + "_" + c[1].upper() for c in approved_agg.columns.tolist()])
-    prev_agg = prev_agg.join(approved_agg, how="left", on="LN_ID")
+    df_agg = df_agg.join(approved_agg, how="left", on="LN_ID")
     
     # group by previous application: refused - only numerical features
-    refused = prev_app[prev_app["CONTRACT_STATUS_Refused"] == 1]
+    refused = df_transformed[df_transformed["CONTRACT_STATUS_Refused"] == 1]
     refused_agg = refused.groupby("LN_ID").agg(num_aggregations)
     refused_agg.columns = pd.Index(["REFUSED_" + c[0] + "_" + c[1].upper() for c in refused_agg.columns.tolist()])
-    prev_agg = prev_agg.join(refused_agg, how="left", on="LN_ID")
+    df_agg = df_agg.join(refused_agg, how="left", on="LN_ID")
     
-    del refused, refused_agg, approved, approved_agg, prev_app
-    return prev_agg
+    return df_agg
 
 
-def installment_payment(num_rows=None, nan_as_category=True):
-    installment_pmt = pd.read_csv("DS1/installment_payment.csv", nrows=num_rows, sep=",", index_col=0)
-
+def installment_payment(df):
     # create new features
-    installment_pmt["PAYMENT_PERC"] = installment_pmt["AMT_PAY"] / installment_pmt["AMT_INST"]
-    installment_pmt["PAYMENT_DIFF"] = installment_pmt["AMT_PAY"] - installment_pmt["AMT_INST"]
-    installment_pmt["OVERDUE_DAYS"] = installment_pmt["PAY_DAYS"] - installment_pmt["INST_DAYS"]
-    has_due = installment_pmt["OVERDUE_DAYS"] > 0
-    hasnt_due = installment_pmt["OVERDUE_DAYS"] <= 0
-    installment_pmt.loc[has_due, "HAS_DUE"] = 1
-    installment_pmt.loc[hasnt_due, "HAS_DUE"] = 0
-
+    df["PAYMENT_PERC"] = df["AMT_PAY"] / df["AMT_INST"]
+    df["PAYMENT_DIFF"] = df["AMT_PAY"] - df["AMT_INST"]
+    df["OVERDUE_DAYS"] = df["PAY_DAYS"] - df["INST_DAYS"]
+    has_due = df["OVERDUE_DAYS"] > 0
+    hasnt_due = df["OVERDUE_DAYS"] <= 0
+    df.loc[has_due, "HAS_DUE"] = 1
+    df.loc[hasnt_due, "HAS_DUE"] = 0
+    
     # aggregations
     aggregations = {"INST_NUMBER": ["nunique"],
                     "INST_DAYS": ["max", "mean", "sum"],
@@ -127,38 +112,66 @@ def installment_payment(num_rows=None, nan_as_category=True):
                     "HAS_DUE": ["max", "mean", "sum"]}
     
     # encoding categorical variables
-    cat_cols = [col for col in installment_pmt.columns if df[col].dtype == "object"]
-    cat_feats = CategoricalFeatures(installment_pmt,
+    cat_cols = [col for col in df.columns if df[col].dtype == "object"]
+    cat_feats = CategoricalFeatures(df,
                                     categorical_features=cat_cols,
                                     encoding_type="one_hot",
                                     handle_na=True)
-    installment_pmt = cat_feats.fit_transform()
+    df = cat_feats.fit_transform()
     for cat in cat_cols:
         aggregations[cat] = ["mean"]
     
     # group by
-    installment_agg = installment_pmt.groupby("LN_ID").agg(aggregations)
-    installment_agg.columns = pd.Index(['INSTAL_' + c[0] + "_" + c[1].upper() for c in installment_agg.columns.tolist()])
-    installment_agg["INSTAL_COUNT"] = installment_pmt.groupby('LN_ID').size()
+    df_agg = df.groupby("LN_ID").agg(aggregations)
+    df_agg.columns = pd.Index(['INSTAL_' + c[0] + "_" + c[1].upper() for c in df_agg.columns.tolist()])
+    df_agg["INSTAL_COUNT"] = df.groupby('LN_ID').size()
 
-    installment_pmt.set_index("LN_ID")
-    del installment_pmt
-    return installment_agg
+    df.set_index("LN_ID")
+    return df_agg
 
 if __name__ == "__main__":
     print('Reading data into memory ...')
-    df, y_actual = application_train_test(num_rows)
-    prev = previous_applications(num_rows)
-    installment = installment_payment(num_rows)
 
-    print("Previous applications df shape:", prev.shape)
-    df = df.join(prev, how="left", on="LN_ID")
-    del prev
+    # application train test
+    print('Processing application_train_test data ...')
+    app_train = pd.read_csv("../input/app_train.csv")
+    app_test = pd.read_csv("../input/app_test.csv")
+    full_data = pd.concat([app_train, app_test], axis=0)
+    app_train_test = application_train_test(full_data)
+    print("Process completed!")
 
+    # previous applications
+    print('Processing previous_applications data ...')
+    prev_app = pd.read_csv("../input/prev_app.csv")
+    prev = previous_applications(prev_app)
+    print("Process completed!")
+
+    # installment
+    print('Processing installment data ...') 
+    inst_pmt = pd.read_csv("../input/installment_payment.csv")
+    installment = installment_payment(inst_pmt)
+    print("Process completed!")
+
+    # joining table
+    print("previous_applications df shape:", prev.shape)
+    df = app_train_test.join(prev, how="left", on="LN_ID")
+    del prev, app_train_test
     print("Installment amount df shape:", installment.shape)
     df = df.join(installment, how="left", on="LN_ID")
     del installment
-
     print("Final df shape:", df.shape)
     print('Preprocessing is complete, saving data to disk ...')
-    return pickle.dump([df, y_actual], open("preprocessed_data", "wb")), print("Data saved!")
+    
+    # split to train_df and test_df
+    train_len = len(app_train)
+    df_train = df.iloc[:train_len, :]
+    df_test = df.iloc[train_len:, :]
+    
+    # dropping columns for both train and test
+    df_train.drop("LN_ID", axis=1, inplace=True)
+
+    # saving df train and test to csv
+    df_train.to_csv("../input/train_preprocessed.csv", index=False)
+    print("Train data saved!")
+    df_test.to_csv("../input/test_preprocessed.csv", index=False)
+    print("Test data saved!") 
