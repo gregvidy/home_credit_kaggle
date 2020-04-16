@@ -19,7 +19,7 @@ def extract_score(prob):
                    pdo=30,
                    base_odds=math.exp(3),
                    base=600)
-    return score.to_score(prob[1])
+    return score.to_score(prob)
 
 def predict():
     df = pd.read_csv(TEST_DATA)
@@ -37,17 +37,14 @@ def predict():
         
         df = df[cols]
         preds = clf.predict_proba(df)[:, 1]
-        scores = list(map(lambda x: extract_score(x), clf.predict_proba(df)))
 
         if FOLD == 0:
             prob_preds = preds
-            score_preds = scores
         else:
             prob_preds += preds
-            score_preds += scores
      
     prob_preds /= 5
-    score_preds /= 5 #= [x / 5 for x in score_preds]
+    score_preds = list(map(lambda x: extract_score(x), prob_preds))
     label_preds = [1 if x >= 0.5 else 0 for x in prob_preds]
 
     sub = pd.DataFrame(np.column_stack((test_idx, prob_preds, label_preds, score_preds)),
@@ -60,4 +57,4 @@ if __name__ == "__main__":
     print("Start predicting ...")
     submission = predict()
     submission.to_csv(f"models/{MODEL}.csv", index=False)
-    print("Prediction saved!")
+    print("Predictions saved!")
