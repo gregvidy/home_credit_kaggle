@@ -29,6 +29,7 @@ def application_train_test(df):
                                     encoding_type="one_hot",
                                     handle_na=True)
     df_transformed = cat_feats.fit_transform()
+    df_transformed = df_transformed.loc[:,~df_transformed.columns.duplicated()]
 
     df_transformed.set_index("LN_ID")
     return df_transformed
@@ -117,16 +118,17 @@ def installment_payment(df):
                                     categorical_features=cat_cols,
                                     encoding_type="one_hot",
                                     handle_na=True)
-    df = cat_feats.fit_transform()
-    for cat in cat_cols:
+    df_transformed = cat_feats.fit_transform()
+    new_cols = [c for c in df_transformed.columns if c not in df.columns]
+    df_transformed = df_transformed.loc[:,~df_transformed.columns.duplicated()] # delete duplicate columns if any
+    for cat in new_cols:
         aggregations[cat] = ["mean"]
     
     # group by
-    df_agg = df.groupby("LN_ID").agg(aggregations)
+    df_agg = df_transformed.groupby("LN_ID").agg(aggregations)
     df_agg.columns = pd.Index(['INSTAL_' + c[0] + "_" + c[1].upper() for c in df_agg.columns.tolist()])
     df_agg["INSTAL_COUNT"] = df.groupby('LN_ID').size()
 
-    df.set_index("LN_ID")
     return df_agg
 
 if __name__ == "__main__":
