@@ -58,6 +58,10 @@ def fraud_ratio_table(y_hat, y, ax, split_n=10, table=False):
     if table:
         tmp = get_tp_fp(y, y_hat, split_n)
         tmp['section_count_ratio'] = (tmp[1] + tmp[0]) / (sum(tmp[0]) + sum(tmp[1]))
+        tmp['good_count'] = tmp[0]
+        tmp['bad_count'] = tmp[1]
+        tmp['total_count'] = tmp[0] + tmp[1]
+        tmp['section_good_ratio'] = tmp[0] / (tmp[1] + tmp[0])
         tmp['section_bad_ratio'] = tmp[1] / (tmp[1] + tmp[0])
         tmp['good_cum'] = tmp[0].cumsum()
         tmp['bad_cum'] = tmp[1].cumsum()
@@ -68,7 +72,11 @@ def fraud_ratio_table(y_hat, y, ax, split_n=10, table=False):
 
         res = tmp.reset_index()[
             ['bin',
+             'good_count',
+             'bad_count',
+             'total_count',
              'section_count_ratio',
+             'section_good_ratio',
              'section_bad_ratio',
              'section_ratio_cum',
              'good_cum_ratio',
@@ -77,7 +85,11 @@ def fraud_ratio_table(y_hat, y, ax, split_n=10, table=False):
         ]
         res.columns = [
             'Score Range',
+            'Good Count',
+            'Bad Count',
+            'Total Count',
             'Proportion',
+            'Good Rate',
             'Bad Rate',
             'Cumulative of Total Proportion',
             'Cumulative of Good Proportion',
