@@ -31,22 +31,17 @@ class ClassificationMetrics:
             return self.metrics[metric](y_true=y_true, y_pred=y_pred)
 
     @staticmethod
+    def _auc(y_true, y_pred):
+        return skmetrics.roc_auc_score(y_true=y_true, y_score=y_pred)
+
+    @staticmethod
     def _gini(y_true, y_pred):
-        assert (len(y_true) == len(y_pred))
-        all = np.asarray(np.c_[y_true, y_pred, np.arange(len(y_actual))], dtype=np.float)
-        all = all[np.lexsort((all[:, 2], -1 * all[:, 1]))]
-        total_loss = all[:, 0].sum()
-        gini_sum = all[:, 0].cumsum().sum() / total_loss
-        gini_sum -= (len(y_true) + 1) / 2.
-        return gini_sum / len(y_true)
+        auc = skmetrics.roc_auc_score(y_true=y_true, y_score=y_pred)
+        return 2 * auc - 1
 
     @staticmethod
     def _gini_normalized(y_true, y_pred):
         return gini(y_true=y_true, y_pred=y_pred) / gini(y_true=y_true, y_pred=y_true)
-
-    @staticmethod
-    def _auc(y_true, y_pred):
-        return skmetrics.roc_auc_score(y_true=y_true, y_score=y_pred)
 
     @staticmethod
     def _logloss(y_true, y_pred):
